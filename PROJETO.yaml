@@ -1,0 +1,112 @@
+heat_template_version: 2015-04-30
+description: Projeto 
+
+parameters:
+
+  key_name:
+    type: string
+    label: projeto
+    description: Name of key-pair to be used for compute instance
+    default: projeto
+  image_id:
+    type: string
+    label: 491c1e84-926f-478b-b341-782a8005b912
+    description: Image to be used for compute instance
+    default: Ubuntu-16-04
+  instance_type:
+    type: string
+    label: m1.small
+    description: Type of instance (flavor) to be used
+    default: m1.small
+  public_network:
+    type: string
+    label: external_network
+    description: Public network with floating IP addresses.
+    default: external_network
+  network_private: 
+     type: string
+     description: Network of project
+     default: network_private_projeto
+
+resources:
+
+   instance_FloatingIP:
+      type: OS::Neutron::FloatingIP
+      properties:
+        floating_network: { get_param: public_network }
+
+   instance_FloatingIP_two:
+      type: OS::Neutron::FloatingIP
+      properties:
+        floating_network: { get_param: public_network }               
+
+   instance_FloatingIPAssociation:
+      type: OS::Neutron::FloatingIPAssociation
+      properties:
+        floatingip_id: { get_resource: instance_FloatingIP }
+        port_id:  { get_resource: instance_port} 
+
+   instance_FloatingIPAssociation_two:
+      type: OS::Neutron::FloatingIPAssociation
+      properties:
+        floatingip_id: { get_resource: instance_FloatingIP_two }
+        port_id:  { get_resource: instance_port_two}     
+
+   instance_port:
+      type: OS::Neutron::Port
+      properties:
+        network: { get_param: network_private }
+
+   instance_port_two:
+      type: OS::Neutron::Port
+      properties:
+       network: { get_param: network_private }    
+            
+   instance1:
+     type: OS::Nova::Server
+     properties:
+       flavor: { get_param: instance_type }
+       image: { get_param: image_id }
+       key_name: { get_param: key_name }
+       user_data:
+         get_file: http://host/script_heat_web.sh
+                      
+       networks:
+         - port: {get_resource: instance_port}
+         
+   instance_volume_web:
+      type: OS::Cinder::Volume
+      properties:
+        availability_zone: nova
+        name: vol-projeto-web
+        size: 50
+
+   instance_volume_data_att_web:
+      type: OS::Cinder::VolumeAttachment
+      properties:
+        instance_uuid: { get_resource: instance1}
+        volume_id: { get_resource: instance_volume_web}
+           
+   instance2:
+      type: OS::Nova::Server
+      properties:
+        flavor: { get_param: instance_type }
+        image: { get_param: image_id }
+        key_name: { get_param: key_name }
+        user_data:
+         get_file: http://host/script_heat_bd.sh
+        networks:
+         - port: {get_resource: instance_port_two}    
+
+   instance_volume_bd:
+      type: OS::Cinder::Volume
+      properties:
+        availability_zone: nova
+        name: vol-projeto-bd
+        size: 50
+
+   instance_volume_data_att_bd:
+      type: OS::Cinder::VolumeAttachment
+      properties:
+        instance_uuid: { get_resource: instance2}
+        volume_id: { get_resource: instance_volume_bd} 
